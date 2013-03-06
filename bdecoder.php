@@ -1,66 +1,61 @@
 <?php
 
 class BDecoder {
-	private static function _ben_array_count(&$item, $key) {
-		if (is_string($item)) {
-			$item = strlen(strlen($item)) + strlen($item) + 1;
+	private static function _sum_all($var) {
+		$sum = 0;
 
-		} elseif (is_int($item)) {
-			$item = strlen($item) + 2;
+		switch (gettype($var)) {
+			case 'integer':
+				$sum += strlen($var) + 2;
+			break;
 
+			case 'string':
+				$sum += strlen(strlen(($var))) + strlen($var) + 1;
+			break;
+
+			case 'array':
+				$sum += 2;
+
+				foreach ($var as $key => $value) {
+					if (is_string($key)) {
+						$sum += self::_sum_all($key);
+					}
+
+					$sum += self::_sum_all($value);
+				}
+			break;
 		}
+
+		return $sum;
 	}
 
-	public static function parse($str) {
+	private static function _parse_list($str, $level) {
+		$_list = array();
+
+		$str = substr($str, 1);	
+
+		while ($str[0] != 'e' && ($item = self::parse($str, ++$level)) !== false) {
+			$_list[] = $item;
+		
+			$str = substr($str, self::_sum_all($item));
+		}
+
+		if (count($_list) == 0) {
+			$_list = array(null);
+		}
+
+		return (array) $_list;		
+	}
+
+	public static function parse($str, $level = 0) {
 		switch ($str[0]) {
 			case 'l':
-				$_list = array();
-
-				$str = substr($str, 1);
-
-				while ($str[0] != 'e' && ($item = self::parse($str)) !== false) {
-					$_list[] = $item;
-
-					if (is_string($item)) {
-						$str = substr($str, strlen($item) + strlen(strlen($item)) + 1);
-
-					} elseif (is_int($item)) {
-						$str = substr($str, strlen((string) $item) + 2);
-
-					} elseif (is_array($item)) {
-						array_walk($item, 'self::_ben_array_count');
-
-						$str = substr($str, 1 + array_sum($item) + 1); 
-					}
-				}
-
-				if (count($_list) == 0) {
-					$_list = array(null);
-				}
-
-				return (array) $_list;
+				return self::_parse_list($str, $level);
 
 			case 'd':
 				$_dict = array();
-				$_list = array();
 
-				$str = substr($str, 1);
-
-				while ($str[0] != 'e' && ($item = self::parse($str)) !== false) {
-					$_list[] = $item;
-
-					if (is_string($item))  {
-						$str = substr($str, strlen($item) + strlen(strlen($item)) + 1);
-
-					} elseif (is_int($item)) {
-						$str = substr($str, strlen($item) + 2);
-
-					} elseif (is_array($item)) {
-						array_walk($item, 'self::_ben_array_count');
-
-						$str = substr($str, 1 + array_sum($item) + 1); 
-					}
-				}
+				$_list = self::_parse_list($str, $level);
 
 				if (count($_list) == 0) {
 					$_dict = array(null);
